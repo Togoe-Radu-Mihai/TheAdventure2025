@@ -21,6 +21,12 @@ public class Engine
     private DateTimeOffset _lastFireballTime = DateTimeOffset.MinValue;
     private readonly TimeSpan _fireballCooldown = TimeSpan.FromSeconds(0.25);
 
+    private bool _isGameOver;
+    public bool IsGameOver() => _isGameOver;
+
+    private int _deathScreenTexture = -1;
+    private int _heartTexture;
+
     public Engine(GameRenderer renderer, Input input)
     {
         _renderer = renderer;
@@ -59,12 +65,17 @@ public class Engine
             _currentLevel.Height.Value * _currentLevel.TileHeight.Value
         ));
 
+        _deathScreenTexture = _renderer.LoadTexture("Assets/deathscreen.png", out _);
+        _heartTexture = _renderer.LoadTexture("Assets/hearts.png", out _);
+
         SpawnEnemy(300, 200);
         SpawnEnemy(400, 200);
     }
 
     public void ProcessFrame()
     {
+        if (_isGameOver || _player == null) return;
+
         var now = DateTimeOffset.Now;
         var deltaMs = (now - _lastUpdate).TotalMilliseconds;
         _lastUpdate = now;
@@ -94,6 +105,9 @@ public class Engine
             }
         }
 
+        if (_player.IsDead)
+            _isGameOver = true;
+
         CheckPlayerEnemyCollisions();
         HandleCollisions();
     }
@@ -102,11 +116,47 @@ public class Engine
     {
         _renderer.SetDrawColor(0, 0, 0, 255);
         _renderer.ClearScreen();
-        _renderer.CameraLookAt(_player!.X, _player.Y);
+
+        if (_player != null)
+            _renderer.CameraLookAt(_player.X, _player.Y);
 
         RenderTerrain();
         RenderAllObjects();
+
+        if (_isGameOver)
+            RenderDeathScreen();
+        else
+            RenderPlayerHearts();
+
         _renderer.PresentFrame();
+    }
+
+    private void RenderDeathScreen()
+    {
+        var (w, h) = _renderer.GetWindowSize();
+        _renderer.RenderTexture(_deathScreenTexture, new Rectangle<int>(0, 0, 800, 400), new Rectangle<int>(0, 0, w, h));
+    }
+
+    private void RenderPlayerHearts()
+    {
+        int heartSrcSize = 16;   // each heart in sprite is 16x16
+        int heartDrawSize = 32;  // render at 2x scale
+        int spacing = 10;
+        int startX = 10;
+        int startY = 10;
+
+        var src = new Rectangle<int>(0, 0, heartSrcSize, heartSrcSize); // top red heart
+
+        for (int i = 0; i < _player!.Health; i++)
+        {
+            var dst = new Rectangle<int>(
+                startX + i * (heartDrawSize + spacing),
+                startY,
+                heartDrawSize,
+                heartDrawSize
+            );
+            _renderer.RenderTexture(_heartTexture, src, dst);
+        }
     }
 
     public void RenderTerrain()
@@ -182,7 +232,7 @@ public class Engine
             EndFrame = new SpriteSheet.Position { Row = 0, Col = 4 },
             DurationMs = 500,
             Loop = true
-        };  
+        };
         sheet.ActivateAnimation("Fireball");
 
         var pos = GetFireballStartPosition(_player);
@@ -220,7 +270,6 @@ public class Engine
         _gameObjects.Add(bomb.Id, bomb);
     }
 
-
     private void SpawnEnemy(int x, int y)
     {
         var spriteSheet = new SpriteSheet(
@@ -245,7 +294,7 @@ public class Engine
                 var dy = enemy.Position.Y - _player.Y;
 
                 if (dx * dx + dy * dy < 10 && !_player.IsDead)
-                    _player.Die();
+                    _player.TakeDamage();
             }
         }
     }
@@ -257,9 +306,8 @@ public class Engine
 
         var activeBombs = _gameObjects.Values
             .OfType<TemporaryGameObject>()
-            .Where(b => b.IsExpired) 
+            .Where(b => b.IsExpired)
             .ToList();
-
 
         foreach (var obj in _gameObjects.Values)
         {
@@ -280,7 +328,7 @@ public class Engine
             {
                 foreach (var bomb in activeBombs)
                 {
-                    if (AreRectsColliding(bomb.Position, 32, 32, enemy.Position, 48, 48)) 
+                    if (AreRectsColliding(bomb.Position, 32, 32, enemy.Position, 48, 48))
                     {
                         toRemoveEnemies.Add(enemy.Id);
                     }
@@ -293,8 +341,6 @@ public class Engine
             _gameObjects.Remove(id);
         }
     }
-
-
 
     private bool AreRectsColliding((int X, int Y) posA, int widthA, int heightA,
                                    (int X, int Y) posB, int widthB, int heightB)

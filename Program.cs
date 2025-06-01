@@ -34,6 +34,9 @@ public static class Program
                 engine.ProcessFrame();
                 engine.RenderFrame();
 
+                if (engine.IsGameOver() && input.IsEscapePressed())
+                    quit = true;
+
                 Thread.Sleep(13);
             }
         }

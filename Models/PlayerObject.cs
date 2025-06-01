@@ -11,6 +11,10 @@ public class PlayerObject : GameObject
     public int Y { get; private set; } = 100;
     public bool IsDead { get; private set; } = false;
 
+    private readonly TimeSpan _invincibilityDuration = TimeSpan.FromSeconds(1);
+    private DateTimeOffset _lastHitTime = DateTimeOffset.MinValue;
+
+
     private const int Speed = 128;
     private Direction _currentDirection = Direction.Down;
     private readonly SpriteSheet _spriteSheet;
@@ -58,6 +62,26 @@ public class PlayerObject : GameObject
         var anim = moved ? $"Walk{_currentDirection}" : $"Idle{_currentDirection}";
         _spriteSheet.ActivateAnimation(anim);
     }
+
+    public int Health { get; private set; } = 3;
+
+    public void TakeDamage()
+    {
+        if (IsDead) return;
+
+        if (DateTimeOffset.Now - _lastHitTime < _invincibilityDuration)
+            return; // still invincible
+
+        _lastHitTime = DateTimeOffset.Now;
+        Health--;
+
+        if (Health <= 0)
+        {
+            Die();
+        }
+    }
+
+
 
     public void Die()
     {

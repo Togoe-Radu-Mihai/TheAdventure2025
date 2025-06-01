@@ -101,6 +101,12 @@ public unsafe class GameRenderer
         _sdl.SetRenderDrawColor(_renderer, r, g, b, a);
     }
 
+    public (int Width, int Height) GetWindowSize()
+    {
+        return _window.Size;
+    }
+
+
     public void ClearScreen()
     {
         _sdl.RenderClear(_renderer);
@@ -111,8 +117,8 @@ public unsafe class GameRenderer
         _sdl.RenderPresent(_renderer);
     }
 
-    internal void FillRect(int v1, int v2, int v3, int v4)
-    {
-        throw new NotImplementedException();
-    }
+    //internal void FillRect(int v1, int v2, int v3, int v4)
+    //{
+    //    throw new NotImplementedException();
+    //}
 }
